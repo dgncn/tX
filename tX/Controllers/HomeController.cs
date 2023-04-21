@@ -18,7 +18,7 @@ public class HomeController : Controller
         _context = context;
     }
 
-    [HttpGet]
+    [Route("~/")]
     public IActionResult Index()
     {
         return View();

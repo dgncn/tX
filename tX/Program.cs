@@ -1,6 +1,10 @@
+using System.Configuration;
+using Hangfire;
+using Hangfire.PostgreSql;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using tX.Data;
+using tX.Jobs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,6 +14,38 @@ builder.Services.AddDbContext<TxContext>(options =>
     .EnableSensitiveDataLogging()
 );
 
+builder.Services.AddHangfire(hangfire =>
+{
+    hangfire.SetDataCompatibilityLevel(CompatibilityLevel.Version_170);
+    hangfire.UseSimpleAssemblyNameTypeSerializer();
+    hangfire.UseRecommendedSerializerSettings();
+    hangfire.UseColouredConsoleLogProvider();
+    hangfire.UsePostgreSqlStorage(builder.Configuration.GetConnectionString("HfContext"));
+    JobStorage.Current = new PostgreSqlStorage(builder.Configuration.GetConnectionString("HfContext"));
+    //hangfire.UseSqlServerStorage(
+    //             configuration.GetConnectionString("HangfireConn"),
+    //    new SqlServerStorageOptions
+    //    {
+    //        CommandBatchMaxTimeout = TimeSpan.FromMinutes(5),
+    //        SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5),
+    //        QueuePollInterval = TimeSpan.Zero,
+    //        UseRecommendedIsolationLevel = true,
+    //        DisableGlobalLocks = true
+    //    });
+
+    var server = new BackgroundJobServer(new BackgroundJobServerOptions
+    {
+        ServerName = "hangfire-test",
+    });
+});
+
+builder.Services.AddHangfireServer();
+
+IRecurringJobManager manager = new RecurringJobManager();
+
+manager.RemoveIfExists("c2");
+manager.AddOrUpdate<IMyRecurringJob>("c2",
+   job => job.DoSomethingReentrant(), Cron.Minutely);
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 // Add services to the container.
 builder.Services.AddControllersWithViews();
@@ -38,6 +74,8 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+app.UseHangfireServer();
+app.UseHangfireDashboard();
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 
@@ -46,5 +84,6 @@ app.UseRouting();
 app.UseAuthorization();
 
 app.MapControllers();
+
 
 app.Run();
