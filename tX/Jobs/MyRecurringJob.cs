@@ -17,7 +17,7 @@ namespace tX.Jobs
 
             foreach (var item in model.Result)
             {
-                Console.WriteLine(item._ethVal);
+                Console.WriteLine($"{item._ethVal} - {item.CreatedDate}");
             }
         }
     }
