@@ -20,8 +20,8 @@ builder.Services.AddHangfire(hangfire =>
     hangfire.UseSimpleAssemblyNameTypeSerializer();
     hangfire.UseRecommendedSerializerSettings();
     hangfire.UseColouredConsoleLogProvider();
-    hangfire.UsePostgreSqlStorage(builder.Configuration.GetConnectionString("HfContext"));
-    JobStorage.Current = new PostgreSqlStorage(builder.Configuration.GetConnectionString("HfContext"));
+    hangfire.UsePostgreSqlStorage(builder.Configuration.GetConnectionString("HfContext"), new PostgreSqlStorageOptions());
+    //JobStorage.Current = new PostgreSqlStorage(builder.Configuration.GetConnectionString("HfContext"));
     //hangfire.UseSqlServerStorage(
     //             configuration.GetConnectionString("HangfireConn"),
     //    new SqlServerStorageOptions
@@ -39,13 +39,10 @@ builder.Services.AddHangfire(hangfire =>
     });
 });
 
+
 builder.Services.AddHangfireServer();
 
-IRecurringJobManager manager = new RecurringJobManager();
 
-manager.RemoveIfExists("c2");
-manager.AddOrUpdate<IMyRecurringJob>("c2",
-   job => job.DoSomethingReentrant(), Cron.Minutely);
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 // Add services to the container.
 builder.Services.AddControllersWithViews();
@@ -58,6 +55,8 @@ try
 {
     var context = services.GetRequiredService<TxContext>();
     context.Database.Migrate();
+
+    
 }
 catch (Exception ex)
 {
@@ -74,8 +73,17 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHangfireServer();
+//app.UseHangfireServer();
 app.UseHangfireDashboard();
+
+
+IRecurringJobManager manager = new RecurringJobManager();
+
+manager.RemoveIfExists("c2");
+manager.AddOrUpdate<IMyRecurringJob>("c2",
+   job => job.DoSomethingReentrant(), Cron.Minutely);
+
+
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 
