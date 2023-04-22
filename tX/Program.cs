@@ -14,6 +14,7 @@ builder.Services.AddDbContext<TxContext>(options =>
     .EnableSensitiveDataLogging()
 );
 
+builder.Services.AddScoped<IMyRecurringJob, MyRecurringJob>();
 builder.Services.AddHangfire(hangfire =>
 {
     hangfire.SetDataCompatibilityLevel(CompatibilityLevel.Version_170);
@@ -21,17 +22,6 @@ builder.Services.AddHangfire(hangfire =>
     hangfire.UseRecommendedSerializerSettings();
     hangfire.UseColouredConsoleLogProvider();
     hangfire.UsePostgreSqlStorage(builder.Configuration.GetConnectionString("HfContext"), new PostgreSqlStorageOptions());
-    //JobStorage.Current = new PostgreSqlStorage(builder.Configuration.GetConnectionString("HfContext"));
-    //hangfire.UseSqlServerStorage(
-    //             configuration.GetConnectionString("HangfireConn"),
-    //    new SqlServerStorageOptions
-    //    {
-    //        CommandBatchMaxTimeout = TimeSpan.FromMinutes(5),
-    //        SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5),
-    //        QueuePollInterval = TimeSpan.Zero,
-    //        UseRecommendedIsolationLevel = true,
-    //        DisableGlobalLocks = true
-    //    });
 
     var server = new BackgroundJobServer(new BackgroundJobServerOptions
     {
@@ -39,9 +29,7 @@ builder.Services.AddHangfire(hangfire =>
     });
 });
 
-
 builder.Services.AddHangfireServer();
-
 
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 // Add services to the container.
@@ -55,15 +43,12 @@ try
 {
     var context = services.GetRequiredService<TxContext>();
     context.Database.Migrate();
-
-    
 }
 catch (Exception ex)
 {
     var logger = services.GetRequiredService<ILogger<Program>>();
     logger.LogError(ex, "An error occurred creating the DB.");
 }
-
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
@@ -73,9 +58,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-//app.UseHangfireServer();
 app.UseHangfireDashboard();
-
 
 IRecurringJobManager manager = new RecurringJobManager();
 
