@@ -64,7 +64,7 @@ IRecurringJobManager manager = new RecurringJobManager();
 
 manager.RemoveIfExists("c2");
 manager.AddOrUpdate<IMyRecurringJob>("c2",
-   job => job.DoSomethingReentrant(), Cron.Minutely);
+   job => job.DoSomethingReentrant(), "52 20 * * *");
 
 
 app.UseHttpsRedirection();
