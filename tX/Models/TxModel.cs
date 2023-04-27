@@ -8,11 +8,13 @@ namespace tX.Models
         public string To { get; set; }
         public string Hash { get; set; }
 
+        public string _timeStamp;
         public string Timestamp
         {
             get { return Timestamp; }
             set
             {
+                _timeStamp = value;
                 var longTime = Convert.ToInt64(value);
                 DateTimeOffset dateTimeOffset = DateTimeOffset.FromUnixTimeSeconds(longTime);
                 this.CreatedDate = dateTimeOffset.DateTime;

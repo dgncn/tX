@@ -1,8 +1,12 @@
-﻿using Nethereum.Contracts;
+﻿using Microsoft.CodeAnalysis;
+using Microsoft.EntityFrameworkCore;
+using Nethereum.Contracts;
 using Nethereum.Contracts.Services;
 using Nethereum.Hex.HexTypes;
 using Nethereum.Web3;
 using Refit;
+using tX.Data;
+using tX.Data.Entities;
 using tX.ServiceApis;
 
 namespace tX.Jobs
@@ -10,9 +14,60 @@ namespace tX.Jobs
     public interface IMyRecurringJob
     {
         Task DoSomethingReentrant();
+
+        /// <summary>
+        /// dbdeki adresler arasında gezer. her adres için transactionları kaydeder.
+        /// </summary>
+        /// <returns></returns>
+        Task CreateTransactions();
     }
     public class MyRecurringJob : IMyRecurringJob
     {
+        private readonly TxContext _context;
+
+        public MyRecurringJob(TxContext context)
+        {
+            _context = context;
+        }
+        public async Task CreateTransactions()
+        {
+            var etherScanApi = RestService.For<IEtherScanApi>("https://api.etherscan.io");
+
+            var addresses = await _context.Addresses.ToListAsync();
+            var txs = await _context.Transactions.OrderByDescending(x => x.CreatedDate).ToListAsync();
+
+            var newTxList = new List<TxEntity>();
+            foreach (var address in addresses)
+            {
+                var ts = txs?.FirstOrDefault(x => x.From == address.Hash)?.CreatedDate;
+                var model = await etherScanApi.GetNormalTransactionsByAddress(address.Hash, "VY28RYSRRCW617QIM92BJTQ3WES87PGJSP");
+
+                foreach (var _tx in model.Result)
+                {
+                    if (ts.HasValue && !(_tx.CreatedDate > ts)) continue;
+
+                    var newTransaction = new TxEntity()
+                    {
+                        EthValue = _tx._ethVal,
+                        From = _tx.From,
+                        Timestamp = _tx._timeStamp,
+                        To = _tx.To,
+                        CreatedDate = _tx.CreatedDate
+                    };
+
+                    newTxList.Add(newTransaction);
+                }
+                if (newTxList.Count > 0) Thread.Sleep(300);
+            }
+
+            await _context.Transactions.AddRangeAsync(newTxList);
+            await _context.SaveChangesAsync();
+
+
+            //GetAccountBalance().Wait();
+
+        }
+
         public async Task DoSomethingReentrant()
         {
             //Console.WriteLine("IMyRecurringJob doing something");
@@ -34,6 +89,7 @@ namespace tX.Jobs
 
 
             var web3 = new Web3("https://mainnet.infura.io/v3/f3be6af8c5d7458d8a5d582b43cc4d54");
+
 
 
             //Getting current block number  
@@ -82,6 +138,8 @@ namespace tX.Jobs
             var abiModel = await etherScanApi.GetAbiByAddress(transaction.To, "VY28RYSRRCW617QIM92BJTQ3WES87PGJSP");
 
 
+            var model = await etherScanApi.GetNormalTransactionsByAddress("0xf4f45c30065f15305b4707b70a2da055ce58b7c1", "VY28RYSRRCW617QIM92BJTQ3WES87PGJSP");
+
             //$"https://api.etherscan.io/api?module=contract&action=getabi&address={}&apikey=VY28RYSRRCW617QIM92BJTQ3WES87PGJSP";
 
             //var abi =
@@ -100,7 +158,7 @@ namespace tX.Jobs
             var str = "hello";
             var data = testFunction.GetData(69, str, array);
             var decode = testFunction.DecodeInput(transaction.Input);
-            
+
             //FunctionMessageExtensions.DecodeInput()
 
             var etherAmount = Web3.Convert.FromWei(balance.Value);

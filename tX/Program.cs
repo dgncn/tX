@@ -38,6 +38,7 @@ var app = builder.Build();
 
 using var scope = app.Services.CreateScope();
 var services = scope.ServiceProvider;
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 try
 {
@@ -63,8 +64,12 @@ app.UseHangfireDashboard();
 IRecurringJobManager manager = new RecurringJobManager();
 
 manager.RemoveIfExists("c2");
+manager.RemoveIfExists("c1");
 manager.AddOrUpdate<IMyRecurringJob>("c2",
    job => job.DoSomethingReentrant(), "52 20 * * *");
+
+manager.AddOrUpdate<IMyRecurringJob>("c1",
+   job => job.CreateTransactions(), "52 20 * * *");
 
 
 app.UseHttpsRedirection();

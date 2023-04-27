@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using tX.Data;
@@ -11,9 +12,10 @@ using tX.Data;
 namespace tX.Migrations
 {
     [DbContext(typeof(TxContext))]
-    partial class TxContextModelSnapshot : ModelSnapshot
+    [Migration("20230427184810_AddressAdded")]
+    partial class AddressAdded
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -45,16 +47,10 @@ namespace tX.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<decimal>("EthValue")
                         .HasColumnType("numeric");
 
                     b.Property<string>("From")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Timestamp")
                         .HasColumnType("text");
 
                     b.Property<string>("To")
