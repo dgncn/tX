@@ -4,6 +4,7 @@ using Nethereum.Contracts;
 using Nethereum.Contracts.Services;
 using Nethereum.Hex.HexTypes;
 using Nethereum.Web3;
+using Newtonsoft.Json;
 using Refit;
 using tX.Data;
 using tX.Data.Entities;
@@ -31,7 +32,11 @@ namespace tX.Jobs
         }
         public async Task CreateTransactions()
         {
-            var etherScanApi = RestService.For<IEtherScanApi>("https://api.etherscan.io");
+            var c = new RefitSettings
+            {
+                ContentSerializer = new NewtonsoftJsonContentSerializer()
+            };
+            var etherScanApi = RestService.For<IEtherScanApi>("https://api.etherscan.io",c);
 
             var addresses = await _context.Addresses.ToListAsync();
             var txs = await _context.Transactions.OrderByDescending(x => x.CreatedDate).ToListAsync();
@@ -50,10 +55,11 @@ namespace tX.Jobs
                     {
                         EthValue = _tx._ethVal,
                         From = _tx.From,
-                        Timestamp = _tx._timeStamp,
+                        Timestamp = _tx.Timestamp,
                         To = _tx.To,
                         CreatedDate = _tx.CreatedDate,
-                        Hash = _tx.Hash
+                        Hash = _tx.Hash,
+                         FunctionSignature = _tx.FunctionSignature
                     };
 
                     newTxList.Add(newTransaction);
@@ -163,11 +169,13 @@ namespace tX.Jobs
             //var contract = x.GetContract(abiModel.Result, "ContractAddress");
 
             //get the function by name
-            var testFunction = contract.GetFunction("swapExactETHForTokens");
+            
+            var testFunction = contract.GetFunction(unprocessedItem.FunctionName);
+            //var testFunction = contract.GetFunction("swapExactETHForTokens");
             var array = new[] { 1, 2, 3 };
 
             var str = "hello";
-            var data = testFunction.GetData(69, str, array);
+            //var data = testFunction.GetData(69, str, array);
             var decode = testFunction.DecodeInput(transaction.Input);
 
             //FunctionMessageExtensions.DecodeInput()
@@ -176,3 +184,4 @@ namespace tX.Jobs
             //Console.WriteLine($"Balance in Ether: {etherAmount}");        }
         }
     }
+}

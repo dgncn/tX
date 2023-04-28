@@ -8,10 +8,10 @@ namespace tX.Models
         public string To { get; set; }
         public string Hash { get; set; }
 
-        public string _timeStamp;
+        private string _timeStamp;
         public string Timestamp
         {
-            get { return Timestamp; }
+            get { return _timeStamp; }
             set
             {
                 _timeStamp = value;
@@ -25,19 +25,26 @@ namespace tX.Models
             get; set;
         }
         public decimal _ethVal { get; set; }
+        private string _val;
         [JsonProperty("value")]
         public string Value
         {
             get
             {
-                return Value;
+                return _val;
             }
 
             set
             {
                 var v = Convert.ToDecimal(value);
+                _val = value;
                 this._ethVal = (v / (decimal)Math.Pow(10, 18));
             }
         }
+        //public string FunctionName { get; set; }
+
+        [JsonProperty("functionName")]
+        public string FunctionSignature { get; set; }
+        public string FunctionName { get; set; }
     }
 }

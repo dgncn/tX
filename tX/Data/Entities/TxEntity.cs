@@ -7,14 +7,16 @@ namespace tX.Data.Entities
         [Key]
         public Guid Id { get; set; }
         public string Hash { get; set; }
+        private string _sig;
         public string FunctionSignature
         {
             get
             {
-                return this.FunctionSignature;
+                return _sig;
             }
             set
             {
+                _sig = value;
                 if (!string.IsNullOrWhiteSpace(value))
                 {
                     this.FunctionName = value.Substring(0, value.IndexOf('('));
