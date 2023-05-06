@@ -1,8 +1,10 @@
-﻿using Microsoft.CodeAnalysis;
+﻿using System.Security.Policy;
+using Microsoft.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 using Nethereum.Contracts;
 using Nethereum.Contracts.Services;
 using Nethereum.Hex.HexTypes;
+using Nethereum.RPC.Eth.DTOs;
 using Nethereum.Web3;
 using Newtonsoft.Json;
 using Refit;
@@ -21,6 +23,7 @@ namespace tX.Jobs
         /// </summary>
         /// <returns></returns>
         Task CreateTransactions();
+        Task GetTxHashInfos();
     }
     public class MyRecurringJob : IMyRecurringJob
     {
@@ -36,7 +39,7 @@ namespace tX.Jobs
             {
                 ContentSerializer = new NewtonsoftJsonContentSerializer()
             };
-            var etherScanApi = RestService.For<IEtherScanApi>("https://api.etherscan.io",c);
+            var etherScanApi = RestService.For<IEtherScanApi>("https://api.etherscan.io", c);
 
             var addresses = await _context.Addresses.ToListAsync();
             var txs = await _context.Transactions.OrderByDescending(x => x.CreatedDate).ToListAsync();
@@ -59,7 +62,7 @@ namespace tX.Jobs
                         To = _tx.To,
                         CreatedDate = _tx.CreatedDate,
                         Hash = _tx.Hash,
-                         FunctionSignature = _tx.FunctionSignature
+                        FunctionSignature = _tx.FunctionSignature
                     };
 
                     newTxList.Add(newTransaction);
@@ -69,6 +72,62 @@ namespace tX.Jobs
 
             await _context.Transactions.AddRangeAsync(newTxList);
             await _context.SaveChangesAsync();
+        }
+
+        public async Task CreateTransaction(string txHash)
+        {
+            var c = new RefitSettings
+            {
+                ContentSerializer = new NewtonsoftJsonContentSerializer()
+            };
+            var etherScanApi = RestService.For<IEtherScanApi>("https://api.etherscan.io", c);
+            string address = await GetFromAddressOfTransaction(txHash);
+            var txs = await _context.Transactions.FirstOrDefaultAsync(x => x.Hash == txHash);
+            if (txs != null) return;
+
+            var model = await etherScanApi.GetNormalTransactionsByAddress(address, "VY28RYSRRCW617QIM92BJTQ3WES87PGJSP");
+
+            var _tx = model.Result.FirstOrDefault(x => x.Hash == txHash);
+            var newTransaction = new TxEntity()
+            {
+                EthValue = _tx._ethVal,
+                From = _tx.From,
+                Timestamp = _tx.Timestamp,
+                To = _tx.To,
+                CreatedDate = _tx.CreatedDate,
+                Hash = _tx.Hash,
+                FunctionSignature = _tx.FunctionSignature
+            };
+
+            await _context.Transactions.AddAsync(newTransaction);
+            await _context.SaveChangesAsync();
+        }
+
+        /// <summary>
+        /// transactioni tetikleyen kisi/gonderen
+        /// </summary>
+        /// <param name="txHash"></param>
+        /// <returns></returns>
+        private async Task<string> GetFromAddressOfTransaction(string txHash)
+        {
+            var tx = await GetTransactionOfTxHash(txHash);
+            return tx.From;
+        }
+
+        private async Task<Transaction> GetTransactionOfTxHash(string txHash)
+        {
+            var web3 = new Web3("https://mainnet.infura.io/v3/f3be6af8c5d7458d8a5d582b43cc4d54");
+            var transaction =
+                await web3.Eth.Transactions.GetTransactionByHash.SendRequestAsync(
+                    txHash);
+
+            return transaction;
+        }
+
+        private async Task<TxEntity> GetTransactionFromDbByTxHash(string txHash)
+        {
+            var item = await _context.Transactions.FirstOrDefaultAsync(x => x.Hash == txHash);
+            return item;
         }
 
         public async Task UpdateTransactionInfos()
@@ -116,9 +175,6 @@ namespace tX.Jobs
                 Thread.Sleep(300);
             }
 
-
-
-
             #region commentedCodes
 
             //Console.WriteLine("Transaction From:" + transaction.From);
@@ -138,11 +194,6 @@ namespace tX.Jobs
 
 
             #endregion
-
-
-
-
-
         }
 
         private async Task ProcessItem(TxEntity unprocessedItem, Web3 web3, IEtherScanApi etherScanApi)
@@ -151,9 +202,16 @@ namespace tX.Jobs
                 await web3.Eth.Transactions.GetTransactionByHash.SendRequestAsync(
                     unprocessedItem.Hash);
 
-            //"0x08153c0546e4f73b178edae90d1e30fb519c7c49ff0dcd00e4b0bcd74dab468c");
 
             var abiModel = await etherScanApi.GetAbiByAddress(transaction.To, "VY28RYSRRCW617QIM92BJTQ3WES87PGJSP");
+
+            var contract = web3.Eth.GetContract(abiModel.Result, transaction.To);
+            var testFunction = contract.GetFunction(unprocessedItem.FunctionName);
+
+            var decode = testFunction.DecodeInput(transaction.Input);
+            int x = 4;
+            #region commented codes
+            //"0x08153c0546e4f73b178edae90d1e30fb519c7c49ff0dcd00e4b0bcd74dab468c");
 
             //var model = await etherScanApi.GetNormalTransactionsByAddress("0xf4f45c30065f15305b4707b70a2da055ce58b7c1", "VY28RYSRRCW617QIM92BJTQ3WES87PGJSP");
 
@@ -164,24 +222,40 @@ namespace tX.Jobs
 
             //var ethApi = new EthApiContractService(null, null);
 
-            var contract = web3.Eth.GetContract(abiModel.Result, transaction.To);
             //x.GetFunction()
             //var contract = x.GetContract(abiModel.Result, "ContractAddress");
 
             //get the function by name
-            
-            var testFunction = contract.GetFunction(unprocessedItem.FunctionName);
             //var testFunction = contract.GetFunction("swapExactETHForTokens");
-            var array = new[] { 1, 2, 3 };
 
-            var str = "hello";
             //var data = testFunction.GetData(69, str, array);
-            var decode = testFunction.DecodeInput(transaction.Input);
-
             //FunctionMessageExtensions.DecodeInput()
 
             //var etherAmount = Web3.Convert.FromWei(balance.Value);
-            //Console.WriteLine($"Balance in Ether: {etherAmount}");        }
+            //Console.WriteLine($"Balance in Ether: {etherAmount}");
+            #endregion
+        }
+
+        public async Task GetTxHashInfos()
+        {
+            string txHash = "0xac9d15f1642946eae26aae251289c97df88731ee1782e321b73c21c670ba49ee";
+            await CreateTransaction(txHash);
+            var model = await GetTransactionFromDbByTxHash(txHash);
+            var web3 = new Web3("https://mainnet.infura.io/v3/f3be6af8c5d7458d8a5d582b43cc4d54");
+            var transaction =
+                await web3.Eth.Transactions.GetTransactionByHash.SendRequestAsync(
+                    txHash);
+
+            var c = new RefitSettings
+            {
+                ContentSerializer = new NewtonsoftJsonContentSerializer()
+            };
+            var etherScanApi = RestService.For<IEtherScanApi>("https://api.etherscan.io", c);
+            var abiModel = await etherScanApi.GetAbiByAddress(transaction.To, "VY28RYSRRCW617QIM92BJTQ3WES87PGJSP");
+            var contract = web3.Eth.GetContract(abiModel.Result, transaction.To);
+            var testFunction = contract.GetFunction(model.FunctionName);
+            var decode = testFunction.DecodeInput(transaction.Input);
+            int x = 3;
         }
     }
 }
